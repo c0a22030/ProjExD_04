@@ -258,8 +258,8 @@ def main():
     bird = Bird(3, (900, 400))
     bombs = pg.sprite.Group()
     beams = pg.sprite.Group()
-    exps = pg.sprite.Group()
-    emys = pg.sprite.Group()
+    exps = pg.sprite.Group() #爆弾のグループ
+    emys = pg.sprite.Group() #敵機のグループ
 
     tmr = 0
     clock = pg.time.Clock()
