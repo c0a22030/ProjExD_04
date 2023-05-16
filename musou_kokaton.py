@@ -330,6 +330,7 @@ class Gravity(pg.sprite.Sprite):
     def update(self):
         self.life -= 1
         if self.life < 0:
+            self.kill()
 
           
 class Shield(pg.sprite.Sprite):
