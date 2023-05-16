@@ -67,11 +67,12 @@ class Bird(pg.sprite.Sprite):
             (+1, +1): pg.transform.rotozoom(img, -45, 1.0),  # 右下
         }
         self.dire = (+1, 0)
-        self.image = self.imgs[self.dire]
+        self.image = self.imgs[self.dire] 
         self.rect = self.image.get_rect()
         self.rect.center = xy
         self.speed = 10
 
+        
     def change_img(self, num: int, screen: pg.Surface):
         """
         こうかとん画像を切り替え，画面に転送する
@@ -143,16 +144,17 @@ class Bomb(pg.sprite.Sprite):
 
 class Beam(pg.sprite.Sprite):
     """
-    ビームに関するクラス
+    一つビームに関するクラス
     """
-    def __init__(self, bird: Bird):
+    def __init__(self, bird: Bird, angle0: float=0.0):
         """
         ビーム画像Surfaceを生成する
-        引数 bird：ビームを放つこうかとん
+        引数1 bird：ビームを放つこうかとん
+        引数2 硬貨トンからの発射角度
         """
         super().__init__()
         self.vx, self.vy = bird.get_direction()
-        angle = math.degrees(math.atan2(-self.vy, self.vx))
+        angle = math.degrees(math.atan2(-self.vy, self.vx))+angle0
         self.image = pg.transform.rotozoom(pg.image.load(f"ex04/fig/beam.png"), angle, 2.0)
         self.vx = math.cos(math.radians(angle))
         self.vy = -math.sin(math.radians(angle))
@@ -169,6 +171,21 @@ class Beam(pg.sprite.Sprite):
         self.rect.move_ip(+self.speed*self.vx, +self.speed*self.vy)
         if check_bound(self.rect) != (True, True):
             self.kill()
+
+class Neo_beams:
+    """
+    複数のビームに関するクラス
+    """
+    def __init__(self, bird: Bird, num: int):
+        self.num = num
+        self.bird = bird
+        self.beams = list()
+
+    def gen_beams(self):
+        for angle in range(-50, +51, int(100/(self.num-1))):
+            self.beams.append(Beam(self.bird, angle))
+        return self.beams
+
 
 
 class Explosion(pg.sprite.Sprite):
@@ -275,6 +292,51 @@ class Score:
         screen.blit(self.image, self.rect)
 
 
+class Gravity(pg.sprite.Sprite):
+    def __init__(self, bird: Bird, rad: int, life: int):
+
+
+        super().__init__()
+        self.image = pg.Surface((2*rad, 2*rad))
+        self.image.fill((255,255,255))
+        pg.draw.circle(self.image, (0,0,0), (rad, rad), rad)
+        self.image.set_alpha(200)
+        
+        self.image.set_colorkey((255,255,255))
+        self.rect = self.image.get_rect()
+        self.rect.centerx = bird.rect.centerx
+        self.rect.centery = bird.rect.centery
+        self.life = life
+
+    def update(self):
+        self.life -= 1
+        if self.life < 0:
+
+          
+class Shield(pg.sprite.Sprite):
+    """
+    防御壁に関するクラス
+    """
+    def __init__(self, bird: Bird, life: int):
+        super().__init__()
+        vx, vy = bird.get_direction()
+        angle = math.degrees(math.atan2(-vy, vx))
+        self.image = pg.transform.rotozoom(pg.Surface((20, bird.rect.height * 2)), angle, 1.0)  # 防御壁のサイズを設定
+        self.image.fill((0, 0, 0)), pg.Rect(0, 0, 20, bird.rect.height*2)  # 黒い矩形
+        self.rect = self.image.get_rect()
+        self.rect.centery = bird.rect.centery+bird.rect.height*vy
+        self.rect.centerx = bird.rect.centerx+bird.rect.width*vx
+        self.life = life
+
+    def update(self):
+        """
+        発動時間を1減算し、0未満になったらグループから削除する
+        """
+        self.life -= 1
+        if self.life <= 0:
+            self.kill()
+
+
 def main():
     pg.display.set_caption("真！こうかとん無双")
     screen = pg.display.set_mode((WIDTH, HEIGHT))
@@ -287,7 +349,8 @@ def main():
     exps = pg.sprite.Group()
     emys = pg.sprite.Group()
     neogras = pg.sprite.Group()
-
+    gras = pg.sprite.Group()
+    shields = pg.sprite.Group()
 
     tmr = 0
     clock = pg.time.Clock()
@@ -298,17 +361,36 @@ def main():
                 return 0
             if event.type == pg.KEYDOWN and event.key == pg.K_SPACE:
                 beams.add(Beam(bird))
-
             if event.type == pg.KEYDOWN and event.key == pg.K_RETURN:
                 if score.score > 200:
                     neogras.add(NeoGravity(400))
                     score.score -= 200
-        
+            if event.type == pg.KEYDOWN and event.key == pg.K_TAB:
+                if score.score >= 50:
+                    gras.add(Gravity(bird, 200, 500))
+                    score.score_up(-50)
+            if event.type == pg.KEYDOWN and event.key == pg.K_SPACE and key_lst[pg.K_LSHIFT]:
+                nb = Neo_beams(bird, 5)
+                beams_lst = nb.gen_beams()
+                beams.add(beams_lst)
+            if event.type == pg.KEYDOWN and event.key == pg.K_CAPSLOCK:
+                if score.score > 50 and len(shields) == 0:
+                    vx, vy = bird.get_direction()
+                    if vx != 0 and vy != 0:
+                        pass
+                    else:
+                        shields.add(Shield(bird, 400))  # 発動時間を400フレームに設定
+                        score.score -= 50
+
         screen.blit(bg_img, [0, 0])
 
 
         if tmr%200 == 0:  # 200フレームに1回，敵機を出現させる
             emys.add(Enemy())
+        if event.type == pg.KEYDOWN and event.key == pg.K_LSHIFT:
+            bird.speed = 20
+        if event.type == pg.KEYUP and event.key == pg.K_LSHIFT:
+            bird.speed = 10
 
         for emy in emys:
             if emy.state == "stop" and tmr%emy.interval == 0:
@@ -330,6 +412,14 @@ def main():
             pg.display.update()
             time.sleep(2)
             return
+        
+        for bomb in pg.sprite.groupcollide(bombs, gras, True, False).keys():
+            exps.add(Explosion(bomb, 50))  # 爆発エフェクト
+            score.score_up(1)  # 1点アップ
+
+        for bomb in pg.sprite.groupcollide(bombs, shields, True, False).keys():
+            exps.add(Explosion(bomb, 50))
+            score.score_up(1)  # スコアを増加
 
         for bomb in pg.sprite.groupcollide(bombs, neogras, True, False).keys():
             exps.add(Explosion(bomb, 50))  # 爆発エフェクト
@@ -348,6 +438,10 @@ def main():
         bombs.draw(screen)
         exps.update()
         exps.draw(screen)
+        gras.update()
+        gras.draw(screen)
+        shields.update()
+        shields.draw(screen)
         score.update(screen)
         neogras.update()
         neogras.draw(screen)
