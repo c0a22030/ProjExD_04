@@ -185,7 +185,8 @@ class Explosion(pg.sprite.Sprite):
         img = pg.image.load("ex04/fig/explosion.gif")
         self.imgs = [img, pg.transform.flip(img, 1, 1)]
         self.image = self.imgs[0]
-        self.rect = self.image.get_rect(center=obj.rect.center)
+        self.rect = self.image.get_rect(
+            center=obj.rect.center)
         self.life = life
 
     def update(self):
@@ -227,6 +228,31 @@ class Enemy(pg.sprite.Sprite):
         self.rect.centery += self.vy
 
 
+class NeoGravity(pg.sprite.Sprite):
+    """
+    画面全体を覆う重力場を発生させるクラス
+        引数1 life：爆発時間
+    """
+    def __init__(self,life:int):
+        super().__init__()
+        self.image = pg.Surface((WIDTH,HEIGHT))
+        pg.draw.rect(self.image,(10,10,10),pg.Rect(0,0,WIDTH,HEIGHT))
+        self.image.set_colorkey((0,0,0))
+        self.image.set_alpha(200)
+        self.rect = self.image.get_rect()
+        self.life = life
+
+
+    def update(self):
+        """
+        発動時間を１減算し、０未満になったら削除
+        引数screen:画面surface
+        """
+        self.life -= 1
+        if self.life < 0:
+            self.kill()
+
+
 class Score:
     """
     打ち落とした爆弾，敵機の数をスコアとして表示するクラス
@@ -260,6 +286,8 @@ def main():
     beams = pg.sprite.Group()
     exps = pg.sprite.Group()
     emys = pg.sprite.Group()
+    neogras = pg.sprite.Group()
+
 
     tmr = 0
     clock = pg.time.Clock()
@@ -270,7 +298,14 @@ def main():
                 return 0
             if event.type == pg.KEYDOWN and event.key == pg.K_SPACE:
                 beams.add(Beam(bird))
+
+            if event.type == pg.KEYDOWN and event.key == pg.K_RETURN:
+                if score.score > 200:
+                    neogras.add(NeoGravity(400))
+                    score.score -= 200
+        
         screen.blit(bg_img, [0, 0])
+
 
         if tmr%200 == 0:  # 200フレームに1回，敵機を出現させる
             emys.add(Enemy())
@@ -296,6 +331,14 @@ def main():
             time.sleep(2)
             return
 
+        for bomb in pg.sprite.groupcollide(bombs, neogras, True, False).keys():
+            exps.add(Explosion(bomb, 50))  # 爆発エフェクト
+            score.score_up(1)  # 1点アップ
+
+        for emy in pg.sprite.groupcollide(emys, neogras, True, False).keys():
+            exps.add(Explosion(emy, 50))  # 爆発エフェクト
+            score.score_up(10)  # 1点アップ
+
         bird.update(key_lst, screen)
         beams.update()
         beams.draw(screen)
@@ -306,6 +349,10 @@ def main():
         exps.update()
         exps.draw(screen)
         score.update(screen)
+        neogras.update()
+        neogras.draw(screen)
+
+
         pg.display.update()
         tmr += 1
         clock.tick(50)
