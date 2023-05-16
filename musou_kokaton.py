@@ -67,11 +67,12 @@ class Bird(pg.sprite.Sprite):
             (+1, +1): pg.transform.rotozoom(img, -45, 1.0),  # 右下
         }
         self.dire = (+1, 0)
-        self.image = self.imgs[self.dire]
+        self.image = self.imgs[self.dire] 
         self.rect = self.image.get_rect()
         self.rect.center = xy
         self.speed = 10
 
+        
     def change_img(self, num: int, screen: pg.Surface):
         """
         こうかとん画像を切り替え，画面に転送する
@@ -286,6 +287,7 @@ def main():
     emys = pg.sprite.Group()
     shields = pg.sprite.Group()
 
+
     tmr = 0
     clock = pg.time.Clock()
     while True:
@@ -308,6 +310,10 @@ def main():
 
         if tmr%200 == 0:  # 200フレームに1回，敵機を出現させる
             emys.add(Enemy())
+        if event.type == pg.KEYDOWN and event.key == pg.K_LSHIFT:
+            bird.speed = 20
+        if event.type == pg.KEYUP and event.key == pg.K_LSHIFT:
+            bird.speed = 10
 
         for emy in emys:
             if emy.state == "stop" and tmr%emy.interval == 0:
