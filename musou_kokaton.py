@@ -67,11 +67,12 @@ class Bird(pg.sprite.Sprite):
             (+1, +1): pg.transform.rotozoom(img, -45, 1.0),  # 右下
         }
         self.dire = (+1, 0)
-        self.image = self.imgs[self.dire]
+        self.image = self.imgs[self.dire] 
         self.rect = self.image.get_rect()
         self.rect.center = xy
         self.speed = 10
 
+        
     def change_img(self, num: int, screen: pg.Surface):
         """
         こうかとん画像を切り替え，画面に転送する
@@ -265,6 +266,30 @@ class Score:
         screen.blit(self.image, self.rect)
 
 
+class Shield(pg.sprite.Sprite):
+    """
+    防御壁に関するクラス
+    """
+    def __init__(self, bird: Bird, life: int):
+        super().__init__()
+        vx, vy = bird.get_direction()
+        angle = math.degrees(math.atan2(-vy, vx))
+        self.image = pg.transform.rotozoom(pg.Surface((20, bird.rect.height * 2)), angle, 1.0)  # 防御壁のサイズを設定
+        self.image.fill((0, 0, 0)), pg.Rect(0, 0, 20, bird.rect.height*2)  # 黒い矩形
+        self.rect = self.image.get_rect()
+        self.rect.centery = bird.rect.centery+bird.rect.height*vy
+        self.rect.centerx = bird.rect.centerx+bird.rect.width*vx
+        self.life = life
+
+    def update(self):
+        """
+        発動時間を1減算し、0未満になったらグループから削除する
+        """
+        self.life -= 1
+        if self.life <= 0:
+            self.kill()
+
+
 def main():
     pg.display.set_caption("真！こうかとん無双")
     screen = pg.display.set_mode((WIDTH, HEIGHT))
@@ -276,6 +301,8 @@ def main():
     beams = pg.sprite.Group()
     exps = pg.sprite.Group()
     emys = pg.sprite.Group()
+    shields = pg.sprite.Group()
+
 
     tmr = 0
     clock = pg.time.Clock()
@@ -290,11 +317,23 @@ def main():
                 nb = Neo_beams(bird, 5)
                 beams_lst = nb.gen_beams()
                 beams.add(beams_lst)
+            if event.type == pg.KEYDOWN and event.key == pg.K_CAPSLOCK:
+                if score.score > 50 and len(shields) == 0:
+                    vx, vy = bird.get_direction()
+                    if vx != 0 and vy != 0:
+                        pass
+                    else:
+                        shields.add(Shield(bird, 400))  # 発動時間を400フレームに設定
+                        score.score -= 50
 
         screen.blit(bg_img, [0, 0])
 
         if tmr%200 == 0:  # 200フレームに1回，敵機を出現させる
             emys.add(Enemy())
+        if event.type == pg.KEYDOWN and event.key == pg.K_LSHIFT:
+            bird.speed = 20
+        if event.type == pg.KEYUP and event.key == pg.K_LSHIFT:
+            bird.speed = 10
 
         for emy in emys:
             if emy.state == "stop" and tmr%emy.interval == 0:
@@ -317,6 +356,10 @@ def main():
             time.sleep(2)
             return
 
+        for bomb in pg.sprite.groupcollide(bombs, shields, True, False).keys():
+            exps.add(Explosion(bomb, 50))
+            score.score_up(1)  # スコアを増加
+
         bird.update(key_lst, screen)
         beams.update()
         beams.draw(screen)
@@ -326,6 +369,8 @@ def main():
         bombs.draw(screen)
         exps.update()
         exps.draw(screen)
+        shields.update()
+        shields.draw(screen)
         score.update(screen)
         pg.display.update()
         tmr += 1
